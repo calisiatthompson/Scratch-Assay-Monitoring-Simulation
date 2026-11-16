@@ -1,23 +1,80 @@
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import Response
+import os
+import secrets
+
+from pathlib import Path
+from dotenv import load_dotenv
+
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, Response
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
 from azure.core.exceptions import ResourceNotFoundError
 
 from database import experiments, captures
 from cloud_storage import container_client
 
 
+# ==========================================
+# AUTHENTICATION
+# ==========================================
+
+base_folder = Path(__file__).resolve().parent
+
+load_dotenv(base_folder / ".env")
+
+USERNAME = os.getenv("DASHBOARD_USERNAME")
+PASSWORD = os.getenv("DASHBOARD_PASSWORD")
+
+if not USERNAME or not PASSWORD:
+    raise ValueError(
+        "Dashboard credentials not configured"
+    )
+
+security = HTTPBasic()
+
+
+def verify_credentials(
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+
+    username_correct = secrets.compare_digest(
+        credentials.username.encode("utf-8"),
+        USERNAME.encode("utf-8")
+    )
+
+    password_correct = secrets.compare_digest(
+        credentials.password.encode("utf-8"),
+        PASSWORD.encode("utf-8")
+    )
+
+    if not (username_correct and password_correct):
+
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"}
+        )
+
+    return credentials.username
+
+
+# ==========================================
+# FASTAPI APPLICATION
+# ==========================================
+
 app = FastAPI(
     title="Scratch Assay Monitoring API",
     description="API for remote scratch assay monitoring",
-    version="1.0.0"
+    version="1.0.0",
+    dependencies=[Depends(verify_credentials)]
 )
 
-# Dashboard files
-base_folder = Path(__file__).resolve().parent
+
+# ==========================================
+# DASHBOARD FILES
+# ==========================================
 
 static_folder = base_folder / "static"
 
@@ -34,6 +91,7 @@ def dashboard():
     return FileResponse(
         static_folder / "index.html"
     )
+
 
 # ==========================================
 # HOME ENDPOINT
@@ -78,6 +136,7 @@ def get_experiment(experiment_id: str):
     )
 
     if experiment is None:
+
         raise HTTPException(
             status_code=404,
             detail="Experiment not found"
@@ -119,6 +178,7 @@ def get_latest_capture(experiment_id: str):
     )
 
     if capture is None:
+
         raise HTTPException(
             status_code=404,
             detail="No captures found"
@@ -182,6 +242,7 @@ def get_image(
     })
 
     if capture is None:
+
         raise HTTPException(
             status_code=404,
             detail="Capture not found"
