@@ -1,20 +1,14 @@
 
 import csv
-import matplotlib.pyplot as plt
 import cv2
 import numpy as np
+import matplotlib
+
+# Prevent graph windows from interrupting the simulation
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 from pathlib import Path
-
-# Define project directory
-base_folder = Path(__file__).resolve().parent
-
-# Create output folders
-sample_folder = base_folder / "sample_images"
-processed_folder = base_folder / "processed_images"
-results_folder = base_folder / "results"
-
-processed_folder.mkdir(exist_ok=True)
-results_folder.mkdir(exist_ok=True)
 
 
 # ==========================================
@@ -29,12 +23,13 @@ def detect_scratch(filename):
     if image is None:
         raise FileNotFoundError(filename)
 
-    # Keep the same dimensions for all images
+    # Keep consistent image dimensions
     image = image[:446, :377]
 
     # Convert to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = gray.astype(np.float32)
+    gray = cv2.cvtColor(
+        image, cv2.COLOR_BGR2GRAY
+    ).astype(np.float32)
 
     # Detect differences in cell texture
     blur = cv2.GaussianBlur(gray, (0, 0), 2)
@@ -75,8 +70,13 @@ def detect_scratch(filename):
             row[width-80:width-20]
         )
 
-        left_threshold = (middle + left_cells) / 2
-        right_threshold = (middle + right_cells) / 2
+        left_threshold = (
+            middle + left_cells
+        ) / 2
+
+        right_threshold = (
+            middle + right_cells
+        ) / 2
 
         # Find left boundary
         left = next(
@@ -202,26 +202,15 @@ def detect_scratch(filename):
 
 
 # ==========================================
-# ANALYSE SCRATCH ASSAY IMAGES
+# SAVE PROCESSED IMAGE
 # ==========================================
 
-hours = [0, 12, 24]
+def save_processed_image(result, hour, folder):
 
-areas = []
-widths = []
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
 
-for hour in hours:
-
-    filename = sample_folder / f"scratch_{hour}h.png"
-
-    area, scratch_width, result = detect_scratch(
-        filename
-    )
-
-    areas.append(area)
-    widths.append(scratch_width)
-
-    # Add time label
+    # Add experiment time label
     cv2.putText(
         result,
         f"{hour} hours",
@@ -232,132 +221,144 @@ for hour in hours:
         2
     )
 
-    # Save processed image
-    output_image = (
-        processed_folder / f"detected_{hour}h_lines.png"
+    # Define output filename
+    filename = (
+        folder / f"detected_{hour}h_lines.png"
     )
 
-    if not cv2.imwrite(str(output_image), result):
+    # Save processed image
+    if not cv2.imwrite(str(filename), result):
         raise IOError(
-            f"Could not save {output_image}"
+            f"Could not save {filename}"
         )
 
-    print(f"\n{hour} HOURS")
-    print(f"Scratch area: {area} px²")
-    print(f"Average width: {scratch_width:.2f} px")
-    print(f"Processed image saved: {output_image.name}")
+    return filename
 
 
 # ==========================================
 # CALCULATE SCRATCH CLOSURE
 # ==========================================
 
-initial_area = areas[0]
+def calculate_closure(initial_area, current_area):
 
-closures = [
-    ((initial_area - area) / initial_area) * 100
-    for area in areas
-]
+    if initial_area <= 0:
+        raise ValueError(
+            "Initial scratch area must be greater than zero"
+        )
 
-print("\nSCRATCH CLOSURE RESULTS")
+    closure = (
+        (initial_area - current_area)
+        / initial_area
+    ) * 100
 
-for hour, area, width, closure in zip(
-    hours, areas, widths, closures
-):
-
-    print(f"\n{hour} hours:")
-    print(f"  Area: {area} px²")
-    print(f"  Width: {width:.2f} px")
-    print(f"  Scratch closure: {closure:.2f}%")
+    return closure
 
 
 # ==========================================
-# SAVE RESULTS TO CSV
+# SAVE CSV RESULTS
 # ==========================================
 
-csv_file = results_folder / "scratch_results.csv"
+def save_csv(records, folder):
 
-with open(
-    csv_file,
-    "w",
-    newline="",
-    encoding="utf-8"
-) as file:
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
 
-    writer = csv.writer(file)
+    csv_file = folder / "scratch_results.csv"
 
-    writer.writerow([
-        "Time (hours)",
-        "Scratch Area (px2)",
-        "Average Width (px)",
-        "Scratch Closure (%)"
-    ])
+    with open(
+        csv_file,
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as file:
 
-    for hour, area, width, closure in zip(
-        hours, areas, widths, closures
-    ):
+        writer = csv.writer(file)
 
         writer.writerow([
-            hour,
-            area,
-            round(width, 2),
-            round(closure, 2)
+            "Time (hours)",
+            "Capture Timestamp",
+            "Scratch Area (px2)",
+            "Average Width (px)",
+            "Scratch Closure (%)"
         ])
 
-print(f"\nResults saved to: {csv_file}")
+        for record in records:
+
+            writer.writerow([
+                record["hour"],
+                record["timestamp"],
+                record["area"],
+                round(record["width"], 2),
+                round(record["closure"], 2)
+            ])
+
+    return csv_file
 
 
 # ==========================================
 # GENERATE SCRATCH CLOSURE GRAPH
 # ==========================================
 
-plt.figure(figsize=(8, 5))
+def generate_graph(records, folder):
 
-plt.plot(
-    hours,
-    closures,
-    marker="o",
-    color="green",
-    linewidth=2
-)
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
 
-plt.title("Scratch Closure Over Time")
-plt.xlabel("Time (hours)")
-plt.ylabel("Scratch Closure (%)")
+    # Extract measurements
+    hours = [
+        record["hour"] for record in records
+    ]
 
-plt.xticks(hours)
-plt.grid(True, alpha=0.3)
+    closures = [
+        record["closure"] for record in records
+    ]
 
-# Add space for graph labels
-plt.margins(x=0.08, y=0.15)
+    # Create graph
+    plt.figure(figsize=(8, 5))
 
-# Label each data point
-for hour, closure in zip(hours, closures):
-
-    plt.annotate(
-        f"{closure:.1f}%",
-        (hour, closure),
-        textcoords="offset points",
-        xytext=(0, 10),
-        ha="center"
+    plt.plot(
+        hours,
+        closures,
+        marker="o",
+        color="green",
+        linewidth=2
     )
 
-plt.tight_layout()
+    plt.title("Scratch Closure Over Time")
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Scratch Closure (%)")
 
-# Save graph in results folder
-graph_file = (
-    results_folder / "scratch_closure_graph.png"
-)
+    plt.xticks(hours)
+    plt.xlim(-1, 25)
 
-plt.savefig(
-    graph_file,
-    dpi=300,
-    bbox_inches="tight"
-)
+    plt.grid(True, alpha=0.3)
+    plt.margins(y=0.15)
 
-print(f"Graph saved to: {graph_file}")
+    # Label each data point
+    for hour, closure in zip(hours, closures):
 
-print("\nScratch assay analysis completed successfully.")
+        plt.annotate(
+            f"{closure:.1f}%",
+            (hour, closure),
+            textcoords="offset points",
+            xytext=(0, 10),
+            ha="center"
+        )
 
-# Display graph
-plt.show()
+    plt.tight_layout()
+
+    # Save graph
+    graph_file = (
+        folder / "scratch_closure_graph.png"
+    )
+
+    plt.savefig(
+        graph_file,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    # Close figure without displaying a window
+    plt.close()
+
+    return graph_file
