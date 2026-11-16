@@ -1,3 +1,6 @@
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
@@ -13,6 +16,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Dashboard files
+base_folder = Path(__file__).resolve().parent
+
+static_folder = base_folder / "static"
+
+app.mount(
+    "/static",
+    StaticFiles(directory=str(static_folder)),
+    name="static"
+)
+
+
+@app.get("/dashboard")
+def dashboard():
+
+    return FileResponse(
+        static_folder / "index.html"
+    )
 
 # ==========================================
 # HOME ENDPOINT

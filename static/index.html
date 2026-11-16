@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Scratch Assay Monitor</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+ <header>
+    <h1>Scratch Assay Monitor</h1>
+
+    <p>Automated Cell Migration Monitoring System</p>
+
+    <p class="live-indicator">
+        ● Automatic monitoring enabled
+    </p>
+</header>
+
+    <main>
+
+        <section class="experiment-panel">
+
+            <div>
+                <label for="experimentSelect">
+                    Select Experiment
+                </label>
+
+                <select id="experimentSelect"></select>
+            </div>
+
+            <div class="status">
+                <span>Experiment Status</span>
+                <strong id="experimentStatus">Loading...</strong>
+            </div>
+
+        </section>
+
+        <section class="metrics">
+
+            <div class="card">
+                <h3>Scratch Closure</h3>
+                <p id="closure">--%</p>
+            </div>
+
+            <div class="card">
+                <h3>Average Width</h3>
+                <p id="width">-- px</p>
+            </div>
+
+            <div class="card">
+                <h3>Scratch Area</h3>
+                <p id="area">-- px²</p>
+            </div>
+
+            <div class="card">
+                <h3>Captures Completed</h3>
+                <p id="captureCount">--</p>
+            </div>
+
+        </section>
+
+        <section class="panel">
+
+            <div class="section-heading">
+
+                <h2>Microscopy Images</h2>
+
+                <select id="timeSelect"></select>
+
+            </div>
+
+            <div class="image-grid">
+
+                <div>
+                    <h3>Original Image</h3>
+                    <img id="originalImage"
+                         alt="Original scratch assay image">
+                </div>
+
+                <div>
+                    <h3>Processed Image</h3>
+                    <img id="processedImage"
+                         alt="Processed scratch assay image">
+                </div>
+
+            </div>
+
+        </section>
+
+        <section class="panel">
+
+            <h2>Scratch Closure Over Time</h2>
+
+            <img id="closureGraph"
+                 alt="Scratch closure graph">
+
+        </section>
+
+        <section class="panel">
+
+            <h2>Experimental Measurements</h2>
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Time (h)</th>
+                            <th>Area (px²)</th>
+                            <th>Width (px)</th>
+                            <th>Closure (%)</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="resultsTable"></tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+        <p id="message"></p>
+
+    </main>
+
+    <footer>
+        Scratch Assay Monitoring System |
+        Biomedical Engineering Capstone
+    </footer>
+
+    <script src="/static/script.js"></script>
+
+</body>
+</html>
